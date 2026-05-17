@@ -17,6 +17,24 @@
 
 process.env.CCS_INTERNAL_ENTRY_TARGET = 'codex';
 
+function isCodexAuthProfileResolutionError(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'name' in err &&
+    (err as { name?: unknown }).name === 'CodexAuthProfileResolutionError'
+  );
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return String(err);
+}
+
 /**
  * Main entry-point for the ccsx / codex-runtime binary.
  *
@@ -62,8 +80,8 @@ export async function main(argv: string[]): Promise<number> {
         }
       }
     } catch (resolverErr) {
-      const msg = resolverErr instanceof Error ? resolverErr.message : String(resolverErr);
-      if (resolverErr instanceof Error && resolverErr.name === 'CodexAuthProfileResolutionError') {
+      const msg = errorMessage(resolverErr);
+      if (isCodexAuthProfileResolutionError(resolverErr)) {
         process.stderr.write(`[X] codex-auth: ${msg}\n`);
         return 1;
       }

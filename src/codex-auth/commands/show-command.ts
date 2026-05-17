@@ -14,6 +14,7 @@ import { decodeAccountIdentity } from '../codex-account-identity';
 import { showProfileDetail } from './show-detail-view';
 import { parseArgs, rejectUnsupportedOptions, formatRelativeTime } from './types';
 import type { CodexCommandContext, CodexProfileOutput } from './types';
+import type { CodexAccountIdentity } from '../types';
 
 export async function handleShowCodex(ctx: CodexCommandContext, args: string[]): Promise<void> {
   await initUI();
@@ -44,6 +45,7 @@ function _showList(ctx: CodexCommandContext, json: boolean): void {
     name: string;
     email: string;
     plan: string;
+    accountId: string | null;
     lastUsed: string;
     state: string;
     missing?: boolean;
@@ -57,6 +59,7 @@ function _showList(ctx: CodexCommandContext, json: boolean): void {
       name: activeName ?? '',
       email: '<unknown>',
       plan: '-',
+      accountId: null,
       lastUsed: 'never',
       state: 'active(missing)',
       missing: true,
@@ -71,15 +74,16 @@ function _showList(ctx: CodexCommandContext, json: boolean): void {
 
     const profileDir = resolveCodexProfileDir(name);
     const authJsonPath = path.join(profileDir, 'auth.json');
-    let email = meta.email ?? '<unknown>';
-    if (fs.existsSync(authJsonPath) && !meta.email) {
-      const identity = decodeAccountIdentity(authJsonPath);
-      email = identity.email ?? '<unknown>';
-    }
+    const identity: CodexAccountIdentity = fs.existsSync(authJsonPath)
+      ? decodeAccountIdentity(authJsonPath)
+      : {};
+    const email = meta.email ?? identity.email ?? '<unknown>';
+    const plan = meta.plan_type ?? identity.plan_type ?? '-';
+    const accountId = meta.account_id ?? identity.account_id ?? null;
 
     const lastUsed = meta.last_used ? formatRelativeTime(new Date(meta.last_used)) : 'never';
 
-    rows.push({ name, email, plan: meta.plan_type ?? '-', lastUsed, state: states.join(',') });
+    rows.push({ name, email, plan, accountId, lastUsed, state: states.join(',') });
   }
 
   if (json) {
@@ -94,7 +98,7 @@ function _showList(ctx: CodexCommandContext, json: boolean): void {
         last_used: meta?.last_used ?? null,
         email: r.email === '<unknown>' ? null : r.email,
         plan: r.plan === '-' ? null : r.plan,
-        account_id: null,
+        account_id: r.accountId,
         profile_dir: profileDir,
         auth_json_exists: r.missing ? false : fs.existsSync(path.join(profileDir, 'auth.json')),
         auth_json_mtime: null,

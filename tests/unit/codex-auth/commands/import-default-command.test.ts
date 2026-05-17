@@ -123,6 +123,45 @@ function captureOutput(): { stderr: string[]; restore: () => void } {
   };
 }
 
+function mockProcessTable(pgrepStdout: string, psStdout: string) {
+  spyOn(childProcess, 'spawnSync').mockImplementation(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (cmd: string, _args: string[]): any => {
+      if (cmd === 'pgrep') {
+        return {
+          status: pgrepStdout.trim().length > 0 ? 0 : 1,
+          stdout: pgrepStdout,
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+          error: undefined,
+        };
+      }
+      if (cmd === 'ps') {
+        return {
+          status: psStdout.trim().length > 0 ? 0 : 1,
+          stdout: psStdout,
+          stderr: '',
+          pid: 0,
+          output: [],
+          signal: null,
+          error: undefined,
+        };
+      }
+      return {
+        status: 1,
+        stdout: '',
+        stderr: '',
+        pid: 0,
+        output: [],
+        signal: null,
+        error: undefined,
+      };
+    }
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('import-default — missing legacy auth.json', () => {
@@ -385,22 +424,43 @@ describe('import-default — torn-write retry', () => {
     expect(exitCalled).toBe(true);
     expect(ctx.registry.hasProfile('bad-base64url')).toBe(false);
   });
+
+  it('rejects an id_token signature with impossible base64url length', async () => {
+    const authPath = path.join(legacyCodexHome, 'auth.json');
+    const [header, payload] = VALID_JWT.split('.');
+    fs.writeFileSync(authPath, JSON.stringify({ tokens: { id_token: `${header}.${payload}.a` } }));
+
+    const { handleImportDefaultCodex } = await import(
+      '../../../../src/codex-auth/commands/import-default-command'
+    );
+    const ctx = await makeCtx();
+
+    let exitCalled = false;
+    const origExit = process.exit;
+    process.exit = () => {
+      exitCalled = true;
+      throw new Error('exit');
+    };
+    const restore = silenceConsole();
+    try {
+      await handleImportDefaultCodex(ctx, ['bad-signature']);
+    } catch {
+      /* expected */
+    } finally {
+      restore();
+      process.exit = origExit;
+    }
+
+    expect(exitCalled).toBe(true);
+    expect(ctx.registry.hasProfile('bad-signature')).toBe(false);
+  });
 });
 
 describe('import-default — Codex running detection', () => {
   it('warns and refuses when pgrep finds a codex PID', async () => {
     fs.writeFileSync(path.join(legacyCodexHome, 'auth.json'), VALID_AUTH_JSON);
 
-    // Mock spawnSync to simulate pgrep finding codex
-    spyOn(childProcess, 'spawnSync').mockReturnValue({
-      status: 0,
-      stdout: '12345\n',
-      stderr: '',
-      pid: 0,
-      output: [],
-      signal: null,
-      error: undefined,
-    });
+    mockProcessTable('12345\n', '12345 /usr/local/bin/codex login\n');
 
     const { handleImportDefaultCodex } = await import(
       '../../../../src/codex-auth/commands/import-default-command'
@@ -431,15 +491,7 @@ describe('import-default — Codex running detection', () => {
   it('proceeds with --force-while-running even when Codex is running', async () => {
     fs.writeFileSync(path.join(legacyCodexHome, 'auth.json'), VALID_AUTH_JSON);
 
-    spyOn(childProcess, 'spawnSync').mockReturnValue({
-      status: 0,
-      stdout: '12345\n',
-      stderr: '',
-      pid: 0,
-      output: [],
-      signal: null,
-      error: undefined,
-    });
+    mockProcessTable('12345\n', '12345 /usr/local/bin/codex login\n');
 
     const { handleImportDefaultCodex } = await import(
       '../../../../src/codex-auth/commands/import-default-command'
@@ -455,6 +507,57 @@ describe('import-default — Codex running detection', () => {
 
     // Should have proceeded and created the profile
     expect(ctx.registry.hasProfile('forcerunning')).toBe(true);
+  });
+
+  it('warns and refuses when Codex is running through a node shim', async () => {
+    fs.writeFileSync(path.join(legacyCodexHome, 'auth.json'), VALID_AUTH_JSON);
+
+    mockProcessTable('12345\n', '12345 /usr/bin/node /usr/local/bin/codex login\n');
+
+    const { handleImportDefaultCodex } = await import(
+      '../../../../src/codex-auth/commands/import-default-command'
+    );
+    const ctx = await makeCtx();
+
+    let exitCalled = false;
+    const origExit = process.exit;
+    process.exit = () => {
+      exitCalled = true;
+      throw new Error('exit');
+    };
+    const captured = captureOutput();
+    try {
+      await handleImportDefaultCodex(ctx, ['nodeshim']);
+    } catch {
+      /* expected */
+    } finally {
+      captured.restore();
+      process.exit = origExit;
+    }
+
+    expect(exitCalled).toBe(true);
+    expect(captured.stderr.join('')).toContain('12345');
+    expect(ctx.registry.hasProfile('nodeshim')).toBe(false);
+  });
+
+  it('ignores pgrep false positives that are not Codex executables', async () => {
+    fs.writeFileSync(path.join(legacyCodexHome, 'auth.json'), VALID_AUTH_JSON);
+
+    mockProcessTable('11111\n', '11111 /usr/bin/node /tmp/codex-auth-helper.js\n');
+
+    const { handleImportDefaultCodex } = await import(
+      '../../../../src/codex-auth/commands/import-default-command'
+    );
+    const ctx = await makeCtx();
+
+    const restore = silenceConsole();
+    try {
+      await handleImportDefaultCodex(ctx, ['falsepositive']);
+    } finally {
+      restore();
+    }
+
+    expect(ctx.registry.hasProfile('falsepositive')).toBe(true);
   });
 });
 

@@ -10,8 +10,9 @@
  */
 
 import { Loader2 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { TFunction } from 'i18next';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +28,14 @@ import { useCodexAuthProfiles } from '@/hooks/use-codex-auth-profiles';
 import type { CodexAuthProfileEntry } from '@/hooks/use-codex-auth-profiles';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function InlineCode({ children }: { children?: ReactNode }) {
+  return (
+    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em] text-foreground">
+      {children}
+    </code>
+  );
+}
 
 function formatLastUsed(iso: string | null): string {
   if (!iso) return 'never';
@@ -60,8 +69,6 @@ function sourceLabel(source: 'default' | 'env' | 'explicit-codex-home', t: TFunc
 // ── Disabled action button with terminal-redirect tooltip ───────────────────
 
 function TerminalOnlyButton({ label }: { label: string }) {
-  const { t } = useTranslation();
-
   return (
     <TooltipProvider>
       <Tooltip>
@@ -73,7 +80,12 @@ function TerminalOnlyButton({ label }: { label: string }) {
             </Button>
           </span>
         </TooltipTrigger>
-        <TooltipContent>{t('codex.auth.terminalOnlyTooltip')}</TooltipContent>
+        <TooltipContent>
+          <Trans
+            i18nKey="codex.auth.terminalOnlyTooltipRich"
+            components={{ code: <InlineCode /> }}
+          />
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -155,8 +167,12 @@ export function CodexAuthProfilesCard() {
   if (data.profiles.length === 0) {
     return (
       <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm text-muted-foreground space-y-1">
-        <p>{t('codex.auth.emptyRegistry')}</p>
-        <p>{t('codex.auth.legacyCodexHome')}</p>
+        <p>
+          <Trans i18nKey="codex.auth.emptyRegistryRich" components={{ code: <InlineCode /> }} />
+        </p>
+        <p>
+          <Trans i18nKey="codex.auth.legacyCodexHomeRich" components={{ code: <InlineCode /> }} />
+        </p>
       </div>
     );
   }
@@ -166,7 +182,7 @@ export function CodexAuthProfilesCard() {
     return (
       <div className="space-y-3">
         <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-          {t('codex.auth.legacyMode')}
+          <Trans i18nKey="codex.auth.legacyModeRich" components={{ code: <InlineCode /> }} />
         </div>
         <ProfileTable data={data} />
       </div>
@@ -178,7 +194,11 @@ export function CodexAuthProfilesCard() {
     return (
       <div className="space-y-3">
         <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-          {t('codex.auth.externalCodexHome', { path: data.active.codexHome })}
+          <Trans
+            i18nKey="codex.auth.externalCodexHomeRich"
+            values={{ path: data.active.codexHome }}
+            components={{ code: <InlineCode /> }}
+          />
         </div>
         <ProfileTable data={data} />
       </div>

@@ -3,24 +3,76 @@
  * Determines current shell to emit correct eval-safe export syntax.
  */
 
+import * as childProcess from 'child_process';
+
 export type Shell = 'bash' | 'zsh' | 'fish' | 'pwsh' | 'cmd';
 
 /**
  * Detect current shell from environment.
- * On Windows: PSModulePath presence → pwsh, else cmd.
+ * On Windows: inspect explicit shell executable hints, else default to cmd.
  * On Unix: inspect $SHELL suffix.
  */
 export function detectShell(
   env: NodeJS.ProcessEnv = process.env,
-  platform: string = process.platform
+  platform: string = process.platform,
+  parentProcessName?: string
 ): Shell {
   if (platform === 'win32') {
-    return env.PSModulePath ? 'pwsh' : 'cmd';
+    return (
+      shellFromExecutable(env.SHELL) ??
+      shellFromExecutable(parentProcessName ?? detectParentProcessName(platform)) ??
+      shellFromExecutable(env.ComSpec ?? env.COMSPEC) ??
+      'cmd'
+    );
   }
   const sh = (env.SHELL ?? '').toLowerCase();
   if (sh.endsWith('/fish')) return 'fish';
   if (sh.endsWith('/zsh')) return 'zsh';
   return 'bash'; // default for bash, sh, dash, ksh
+}
+
+function detectParentProcessName(platform: string): string | undefined {
+  if (platform !== 'win32' || !Number.isInteger(process.ppid) || process.ppid <= 0) {
+    return undefined;
+  }
+
+  const result = childProcess.spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `(Get-Process -Id ${process.ppid} -ErrorAction Stop).ProcessName`,
+    ],
+    { encoding: 'utf8', timeout: 1500, windowsHide: true }
+  );
+
+  if (result.status !== 0 || !result.stdout) return undefined;
+  return result.stdout.trim().split(/\r?\n/).pop()?.trim();
+}
+
+function shellFromExecutable(value: string | undefined): Shell | null {
+  if (!value) return null;
+  const base = value
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    ?.toLowerCase()
+    .replace(/\.(exe|cmd|ps1|bat)$/i, '');
+
+  switch (base) {
+    case 'fish':
+    case 'zsh':
+    case 'bash':
+    case 'cmd':
+      return base;
+    case 'pwsh':
+    case 'powershell':
+      return 'pwsh';
+    default:
+      return null;
+  }
 }
 
 /**
@@ -33,11 +85,11 @@ function posixSingleQuote(value: string): string {
 
 /**
  * Double-quote escape for PowerShell.
- * Wraps in double quotes; escapes internal double quotes by doubling them
- * and backtick-escapes $ to prevent variable interpolation.
+ * Wraps in double quotes; escapes the PowerShell escape char first, doubles
+ * internal double quotes, and backtick-escapes $ to prevent interpolation.
  */
 function pwshDoubleQuote(value: string): string {
-  return '"' + value.replace(/"/g, '""').replace(/\$/g, '`$') + '"';
+  return '"' + value.replace(/`/g, '``').replace(/"/g, '""').replace(/\$/g, '`$') + '"';
 }
 
 /**
@@ -45,7 +97,7 @@ function pwshDoubleQuote(value: string): string {
  * like &, |, <, and > inside the assignment instead of executing them.
  */
 function cmdSetQuote(value: string): string {
-  return value.replace(/\^/g, '^^').replace(/%/g, '%%').replace(/"/g, '^"');
+  return value.replace(/\^/g, '^^').replace(/%/g, '%%').replace(/"/g, '^"').replace(/!/g, '^^!');
 }
 
 /**

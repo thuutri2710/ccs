@@ -228,6 +228,52 @@ describe('handleRemoveCodex — confirmation', () => {
     expect(ctx.registry.hasProfile('preserveme')).toBe(true);
   });
 
+  it('cleans a partial preservation copy when delete preparation fails', async () => {
+    const { handleRemoveCodex } = await import(
+      '../../../../src/codex-auth/commands/remove-command'
+    );
+    const ctx = await makeCtx('copyfail');
+    const profileDir = path.join(ccsHome, '.ccs', 'codex-instances', 'copyfail');
+    const parentDir = path.dirname(profileDir);
+    const authJsonPath = path.join(profileDir, 'auth.json');
+    fs.writeFileSync(authJsonPath, JSON.stringify({ tokens: { id_token: 'h.e30K.s' } }));
+
+    const realCpSync = fs.cpSync;
+    spyOn(fs, 'cpSync').mockImplementation((src, dest, options) => {
+      if (typeof dest === 'string' && dest.includes('.preserved.')) {
+        fs.mkdirSync(dest, { recursive: true });
+        fs.writeFileSync(path.join(dest, 'auth.json'), '{}');
+        throw new Error('copy failed after partial write');
+      }
+      return realCpSync(src, dest, options);
+    });
+
+    let exitCode = -1;
+    const origExit = process.exit;
+    const origErr = console.error;
+    process.exit = (code?: number) => {
+      exitCode = code ?? 0;
+      throw new Error('exit');
+    };
+    console.error = () => {};
+
+    try {
+      await handleRemoveCodex(ctx, ['copyfail', '--yes']);
+    } catch {
+      /* process.exit */
+    } finally {
+      process.exit = origExit;
+      console.error = origErr;
+    }
+
+    expect(exitCode).toBeGreaterThan(0);
+    expect(fs.existsSync(authJsonPath)).toBe(true);
+    expect(ctx.registry.hasProfile('copyfail')).toBe(true);
+    expect(fs.readdirSync(parentDir).some((entry) => entry.startsWith('copyfail.preserved.'))).toBe(
+      false
+    );
+  });
+
   it('restores profile data and registry when final deletion fails', async () => {
     const { handleRemoveCodex } = await import(
       '../../../../src/codex-auth/commands/remove-command'
@@ -268,5 +314,46 @@ describe('handleRemoveCodex — confirmation', () => {
     expect(fs.existsSync(authJsonPath)).toBe(true);
     expect(ctx.registry.hasProfile('restoreme')).toBe(true);
     expect(ctx.registry.getDefault()).toBe('restoreme');
+  });
+
+  it('restores from preserved copy when final deletion partially removes auth.json', async () => {
+    const { handleRemoveCodex } = await import(
+      '../../../../src/codex-auth/commands/remove-command'
+    );
+    const ctx = await makeCtx('partialrestore');
+    const profileDir = path.join(ccsHome, '.ccs', 'codex-instances', 'partialrestore');
+    const authJsonPath = path.join(profileDir, 'auth.json');
+    fs.writeFileSync(authJsonPath, JSON.stringify({ tokens: { id_token: 'h.e30K.s' } }));
+
+    const realRmSync = fs.rmSync;
+    spyOn(fs, 'rmSync').mockImplementation((target, options) => {
+      if (typeof target === 'string' && target.includes('.deleting.')) {
+        realRmSync(path.join(target, 'auth.json'), { force: true });
+        throw new Error('delete failed after auth removal');
+      }
+      return realRmSync(target, options);
+    });
+
+    let exitCode = -1;
+    const origExit = process.exit;
+    const origErr = console.error;
+    process.exit = (code?: number) => {
+      exitCode = code ?? 0;
+      throw new Error('exit');
+    };
+    console.error = () => {};
+
+    try {
+      await handleRemoveCodex(ctx, ['partialrestore', '--yes']);
+    } catch {
+      /* process.exit */
+    } finally {
+      process.exit = origExit;
+      console.error = origErr;
+    }
+
+    expect(exitCode).toBeGreaterThan(0);
+    expect(fs.existsSync(authJsonPath)).toBe(true);
+    expect(ctx.registry.hasProfile('partialrestore')).toBe(true);
   });
 });

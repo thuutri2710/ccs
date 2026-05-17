@@ -31,16 +31,43 @@ describe('detectShell — Unix', () => {
 });
 
 describe('detectShell — Windows', () => {
-  it('returns pwsh when PSModulePath is set', () => {
-    expect(detectShell({ PSModulePath: 'C:\\Windows\\system32\\...' }, 'win32')).toBe('pwsh');
+  it('does not treat PSModulePath alone as PowerShell', () => {
+    expect(
+      detectShell(
+        { PSModulePath: 'C:\\Windows\\system32\\...', ComSpec: 'C:\\Windows\\System32\\cmd.exe' },
+        'win32'
+      )
+    ).toBe('cmd');
   });
 
-  it('returns cmd when PSModulePath is absent', () => {
-    expect(detectShell({}, 'win32')).toBe('cmd');
+  it('returns pwsh when SHELL points to PowerShell', () => {
+    expect(
+      detectShell(
+        {
+          SHELL: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+          PSModulePath: 'C:\\Windows\\system32\\...',
+        },
+        'win32'
+      )
+    ).toBe('pwsh');
   });
 
-  it('ignores SHELL on Windows — uses PSModulePath heuristic', () => {
-    expect(detectShell({ SHELL: '/bin/bash', PSModulePath: 'C:\\ps' }, 'win32')).toBe('pwsh');
+  it('returns pwsh when the parent process is PowerShell and ComSpec points to cmd', () => {
+    expect(
+      detectShell(
+        { PSModulePath: 'C:\\Windows\\system32\\...', ComSpec: 'C:\\Windows\\System32\\cmd.exe' },
+        'win32',
+        'pwsh.exe'
+      )
+    ).toBe('pwsh');
+  });
+
+  it('honors Git Bash style SHELL on Windows', () => {
+    expect(detectShell({ SHELL: '/usr/bin/bash', PSModulePath: 'C:\\ps' }, 'win32')).toBe('bash');
+  });
+
+  it('returns cmd when no explicit shell hint is available', () => {
+    expect(detectShell({ PSModulePath: 'C:\\ps' }, 'win32')).toBe('cmd');
   });
 });
 
@@ -92,6 +119,11 @@ describe('formatExport — pwsh', () => {
     const result = formatExport('pwsh', 'X', 'say "hello"');
     expect(result).toBe('$env:X = "say ""hello"""');
   });
+
+  it('escapes backticks before interpolation-sensitive characters', () => {
+    const result = formatExport('pwsh', 'CODEX_HOME', 'C:\\Users\\kai`$tmp');
+    expect(result).toBe('$env:CODEX_HOME = "C:\\Users\\kai```$tmp"');
+  });
 });
 
 describe('formatExport — cmd', () => {
@@ -108,8 +140,8 @@ describe('formatExport — cmd', () => {
   });
 
   it('escapes cmd expansion-sensitive characters', () => {
-    expect(formatExport('cmd', 'CODEX_HOME', 'C:\\Users\\100% ^ "quoted"')).toBe(
-      'set "CODEX_HOME=C:\\Users\\100%% ^^ ^"quoted^""'
+    expect(formatExport('cmd', 'CODEX_HOME', 'C:\\Users\\100% ^ "quoted" !bang!')).toBe(
+      'set "CODEX_HOME=C:\\Users\\100%% ^^ ^"quoted^" ^^!bang^^!"'
     );
   });
 });

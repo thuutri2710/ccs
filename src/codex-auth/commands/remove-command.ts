@@ -113,6 +113,9 @@ export async function handleRemoveCodex(ctx: CodexCommandContext, args: string[]
   const stagedDeleteDir = `${profileDir}.deleting.${process.pid}.${Math.random()
     .toString(36)
     .slice(2)}`;
+  const preservationDir = `${profileDir}.preserved.${process.pid}.${Math.random()
+    .toString(36)
+    .slice(2)}`;
 
   try {
     fs.renameSync(profileDir, stagedDeleteDir);
@@ -126,9 +129,24 @@ export async function handleRemoveCodex(ctx: CodexCommandContext, args: string[]
   }
 
   try {
+    fs.cpSync(stagedDeleteDir, preservationDir, { recursive: true, errorOnExist: true });
+  } catch (err) {
+    const restored = _restoreProfileDir(stagedDeleteDir, profileDir);
+    _removePathBestEffort(preservationDir);
+    const preservedPath = restored ? profileDir : stagedDeleteDir;
+    const msg = err instanceof Error ? err.message : String(err);
+    exitWithError(
+      `Profile data delete preparation failed; profile data was preserved at ${preservedPath}.\n  ${msg}`,
+      ExitCode.GENERAL_ERROR
+    );
+    return;
+  }
+
+  try {
     registry.removeProfile(profileName);
   } catch (err) {
     const restored = _restoreProfileDir(stagedDeleteDir, profileDir);
+    _removePathBestEffort(preservationDir);
     const preservedPath = restored ? profileDir : stagedDeleteDir;
     const msg = err instanceof Error ? err.message : String(err);
     exitWithError(
@@ -140,9 +158,14 @@ export async function handleRemoveCodex(ctx: CodexCommandContext, args: string[]
 
   try {
     fs.rmSync(stagedDeleteDir, { recursive: true, force: true });
+    fs.rmSync(preservationDir, { recursive: true, force: true });
   } catch (err) {
-    const restoredDir = _restoreProfileDir(stagedDeleteDir, profileDir);
+    const restoreSource = fs.existsSync(preservationDir) ? preservationDir : stagedDeleteDir;
+    const restoredDir = _restoreProfileDir(restoreSource, profileDir);
     const restoredRegistry = _restoreRegistryEntry(registry, profileName, meta, originalDefault);
+    if (restoredDir && restoreSource === preservationDir) {
+      _removePathBestEffort(stagedDeleteDir);
+    }
     const preservedPath = restoredDir ? profileDir : stagedDeleteDir;
     const msg = err instanceof Error ? err.message : String(err);
     const registryNote = restoredRegistry
@@ -156,6 +179,14 @@ export async function handleRemoveCodex(ctx: CodexCommandContext, args: string[]
   }
 
   console.log(ok(`Profile removed: ${profileName}`));
+}
+
+function _removePathBestEffort(targetPath: string): void {
+  try {
+    fs.rmSync(targetPath, { recursive: true, force: true });
+  } catch {
+    // best-effort cleanup after data has already been preserved elsewhere
+  }
 }
 
 function _restoreRegistryEntry(

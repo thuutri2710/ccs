@@ -38,7 +38,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Detect a running `codex` process via pgrep (best-effort, never throws).
+ * Detect a running `codex` process via pgrep + ps validation (best-effort, never throws).
  * Returns the PID string if found, null otherwise.
  */
 function detectCodexRunning(): string | null {
@@ -47,13 +47,81 @@ function detectCodexRunning(): string | null {
       encoding: 'utf8',
       timeout: 2000,
     });
-    if (result.status === 0 && result.stdout && result.stdout.trim().length > 0) {
-      return result.stdout.trim().split('\n')[0];
+    if (result.status !== 0 || !result.stdout || result.stdout.trim().length === 0) {
+      return null;
     }
-    return null;
+
+    const pids = parsePgrepPids(result.stdout);
+    if (pids.length === 0) return null;
+
+    const psResult = childProcess.spawnSync(
+      'ps',
+      ['-p', pids.join(','), '-o', 'pid=', '-o', 'command='],
+      {
+        encoding: 'utf8',
+        timeout: 2000,
+      }
+    );
+    if (psResult.status !== 0 || !psResult.stdout) return null;
+    return selectCodexPidFromPsOutput(psResult.stdout, pids);
   } catch {
     return null;
   }
+}
+
+function parsePgrepPids(stdout: string): string[] {
+  return stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((pid) => /^\d+$/.test(pid) && pid !== String(process.pid));
+}
+
+function selectCodexPidFromPsOutput(stdout: string, candidatePids: string[]): string | null {
+  const candidates = new Set(candidatePids);
+  for (const line of stdout.split(/\r?\n/)) {
+    const match = line.match(/^\s*(\d+)\s+(.+?)\s*$/);
+    if (!match) continue;
+    const [, pid, command] = match;
+    if (!pid || !command || !candidates.has(pid)) continue;
+    if (isLikelyCodexProcessCommand(command)) return pid;
+  }
+  return null;
+}
+
+function isLikelyCodexProcessCommand(command: string): boolean {
+  const executable = firstCommandToken(command);
+  if (isCodexExecutableToken(executable)) {
+    return true;
+  }
+
+  const normalized = command.replace(/\\/g, '/').toLowerCase();
+  if (normalized.includes('/@openai/codex/')) {
+    return true;
+  }
+
+  return command.split(/\s+/).some((token) => {
+    const tokenName = executableTokenBasename(token);
+    return tokenName === 'codex.js' || isCodexExecutableName(tokenName);
+  });
+}
+
+function firstCommandToken(command: string): string {
+  const trimmed = command.trim();
+  const quoted = trimmed.match(/^"([^"]+)"/);
+  if (quoted?.[1]) return quoted[1];
+  return trimmed.split(/\s+/)[0] ?? '';
+}
+
+function isCodexExecutableToken(token: string): boolean {
+  return isCodexExecutableName(executableTokenBasename(token));
+}
+
+function executableTokenBasename(token: string): string {
+  return path.basename(token.replace(/^["']|["']$/g, '').replace(/\\/g, '/')).toLowerCase();
+}
+
+function isCodexExecutableName(name: string): boolean {
+  return ['codex', 'codex.exe', 'codex.cmd', 'codex.ps1'].includes(name);
 }
 
 /**

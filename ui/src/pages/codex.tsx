@@ -183,10 +183,7 @@ export function CodexPage() {
             <TabsTrigger value="overview">{t('codexPage.overview')}</TabsTrigger>
             <TabsTrigger value="controls">{t('codexPage.controlCenter')}</TabsTrigger>
             <TabsTrigger value="docs">{t('codexPage.docs')}</TabsTrigger>
-            <TabsTrigger value="auth-profiles">
-              {/* TODO i18n: missing key codexPage.authProfiles */}
-              Auth Profiles
-            </TabsTrigger>
+            <TabsTrigger value="auth-profiles">{t('codexPage.authProfiles')}</TabsTrigger>
           </TabsList>
         </div>
 

@@ -31,7 +31,7 @@ function base64urlDecode(str: string): string {
 }
 
 function isBase64UrlSegment(str: string): boolean {
-  return str.length > 0 && BASE64URL_SEGMENT_RE.test(str);
+  return str.length > 0 && str.length % 4 !== 1 && BASE64URL_SEGMENT_RE.test(str);
 }
 
 function decodeJsonSegment(str: string): unknown {

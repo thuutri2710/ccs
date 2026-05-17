@@ -56,6 +56,12 @@ async function captureStdout(fn: () => Promise<void>): Promise<string> {
   return chunks.join('');
 }
 
+function buildToken(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `${header}.${body}.fakesig`;
+}
+
 // ── empty list ────────────────────────────────────────────────────────────────
 
 describe('handleShowCodex — empty list', () => {
@@ -79,6 +85,48 @@ describe('handleShowCodex — default marker', () => {
     const out = await captureStdout(() => handleShowCodex(ctx, []));
     expect(out).toContain('alpha');
     expect(out).toContain('default');
+  });
+});
+
+// ── JSON account metadata ───────────────────────────────────────────────────
+
+describe('handleShowCodex — JSON account_id', () => {
+  it('includes account_id from registry metadata or auth.json identity', async () => {
+    const { handleShowCodex } = await import('../../../../src/codex-auth/commands/show-command');
+    const ctx = await makeCtx('registryid', 'authid');
+    ctx.registry.updateProfile('registryid', {
+      account_id: 'acct-from-registry',
+      email: 'registry@example.com',
+    });
+
+    const authProfileDir = path.join(ccsHome, '.ccs', 'codex-instances', 'authid');
+    fs.mkdirSync(authProfileDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(authProfileDir, 'auth.json'),
+      JSON.stringify({
+        tokens: {
+          id_token: buildToken({
+            email: 'auth@example.com',
+            'https://api.openai.com/auth': {
+              chatgpt_plan_type: 'plus',
+              chatgpt_account_id: 'acct-from-auth-json',
+            },
+          }),
+        },
+      })
+    );
+
+    const out = await captureStdout(() => handleShowCodex(ctx, ['--json']));
+    const parsed = JSON.parse(out) as {
+      profiles: Array<{ name: string; account_id: string | null; email: string | null }>;
+    };
+
+    expect(parsed.profiles.find((p) => p.name === 'registryid')?.account_id).toBe(
+      'acct-from-registry'
+    );
+    expect(parsed.profiles.find((p) => p.name === 'authid')?.account_id).toBe(
+      'acct-from-auth-json'
+    );
   });
 });
 
@@ -118,6 +166,19 @@ describe('handleShowCodex — detail view', () => {
     const ctx = await makeCtx('noauth');
     const out = await captureStdout(() => handleShowCodex(ctx, ['noauth']));
     expect(out).toContain('<unknown>');
+  });
+
+  it('detail JSON includes account_id from registry metadata when auth.json is missing', async () => {
+    const { handleShowCodex } = await import('../../../../src/codex-auth/commands/show-command');
+    const ctx = await makeCtx('registrydetail');
+    ctx.registry.updateProfile('registrydetail', {
+      account_id: 'acct-from-registry-detail',
+    });
+
+    const out = await captureStdout(() => handleShowCodex(ctx, ['registrydetail', '--json']));
+    const parsed = JSON.parse(out) as { account_id: string | null };
+
+    expect(parsed.account_id).toBe('acct-from-registry-detail');
   });
 
   it('does not crash with malformed auth.json', async () => {

@@ -45,6 +45,20 @@ function makeProfileDir(name: string): string {
   return dir;
 }
 
+async function withCapturedStderr<T>(fn: () => Promise<T>): Promise<{ result: T; stderr: string }> {
+  const stderrMessages: string[] = [];
+  const origWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (chunk: string | Uint8Array): boolean => {
+    stderrMessages.push(typeof chunk === 'string' ? chunk : String(chunk));
+    return true;
+  };
+  try {
+    return { result: await fn(), stderr: stderrMessages.join('') };
+  } finally {
+    process.stderr.write = origWrite;
+  }
+}
+
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-router-test-'));
   ccsHome = path.join(tempDir, 'ccs');
@@ -151,27 +165,95 @@ describe('codex-runtime router — non-auth profile resolution', () => {
     });
     process.env.CCS_CODEX_PROFILE = 'ghost';
 
-    const stderrMessages: string[] = [];
-    const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (chunk: string | Uint8Array): boolean => {
-      stderrMessages.push(typeof chunk === 'string' ? chunk : String(chunk));
-      return true;
-    };
-
-    try {
+    const { result: code, stderr } = await withCapturedStderr(async () => {
       require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
       flushRouterCache();
       require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
 
       const { main } = require(routerPath) as { main: (argv: string[]) => Promise<number> };
-      const code = await main(['node', 'codex-runtime', 'chat']);
+      return main(['node', 'codex-runtime', 'chat']);
+    });
 
-      expect(code).toBe(1);
-      expect(process.env.CODEX_HOME).toBeUndefined();
-      expect(stderrMessages.join('')).toContain("CCS_CODEX_PROFILE='ghost'");
-    } finally {
-      process.stderr.write = origWrite;
-    }
+    expect(code).toBe(1);
+    expect(process.env.CODEX_HOME).toBeUndefined();
+    expect(stderr).toContain("CCS_CODEX_PROFILE='ghost'");
+  });
+
+  it('fails fast when CCS_CODEX_PROFILE is set but registry is missing', async () => {
+    process.env.CCS_CODEX_PROFILE = 'ghost';
+
+    const { result: code, stderr } = await withCapturedStderr(async () => {
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+      flushRouterCache();
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+
+      const { main } = require(routerPath) as { main: (argv: string[]) => Promise<number> };
+      return main(['node', 'codex-runtime', 'chat']);
+    });
+
+    expect(code).toBe(1);
+    expect(process.env.CODEX_HOME).toBeUndefined();
+    expect(stderr).toContain('does not exist');
+  });
+
+  it('fails fast when CCS_CODEX_PROFILE is set and registry YAML is corrupt', async () => {
+    fs.mkdirSync(path.dirname(registryPath), { recursive: true });
+    fs.writeFileSync(registryPath, 'profiles: [unterminated\n');
+    process.env.CCS_CODEX_PROFILE = 'ghost';
+
+    const { result: code, stderr } = await withCapturedStderr(async () => {
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+      flushRouterCache();
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+
+      const { main } = require(routerPath) as { main: (argv: string[]) => Promise<number> };
+      return main(['node', 'codex-runtime', 'chat']);
+    });
+
+    expect(code).toBe(1);
+    expect(process.env.CODEX_HOME).toBeUndefined();
+    expect(stderr).toContain('registry YAML could not be parsed');
+  });
+
+  it('fails fast when CCS_CODEX_PROFILE is set and registry is not an object', async () => {
+    fs.mkdirSync(path.dirname(registryPath), { recursive: true });
+    fs.writeFileSync(registryPath, '- not\n- an\n- object\n');
+    process.env.CCS_CODEX_PROFILE = 'ghost';
+
+    const { result: code, stderr } = await withCapturedStderr(async () => {
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+      flushRouterCache();
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+
+      const { main } = require(routerPath) as { main: (argv: string[]) => Promise<number> };
+      return main(['node', 'codex-runtime', 'chat']);
+    });
+
+    expect(code).toBe(1);
+    expect(process.env.CODEX_HOME).toBeUndefined();
+    expect(stderr).toContain('not a valid YAML object');
+  });
+
+  it('fails fast for structural resolver errors with the expected name', async () => {
+    const { result: code, stderr } = await withCapturedStderr(async () => {
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+      flushRouterCache();
+      require.cache[ccsPath] = { exports: {} } as NodeJS.Module;
+      require.cache[resolveProfilePath] = {
+        exports: {
+          resolveActiveProfile: () => {
+            throw { name: 'CodexAuthProfileResolutionError', message: 'boundary failure' };
+          },
+        },
+      } as NodeJS.Module;
+
+      const { main } = require(routerPath) as { main: (argv: string[]) => Promise<number> };
+      return main(['node', 'codex-runtime', 'chat']);
+    });
+
+    expect(code).toBe(1);
+    expect(process.env.CODEX_HOME).toBeUndefined();
+    expect(stderr).toContain('boundary failure');
   });
 
   it('preserves an explicit CODEX_HOME already in env — does not overwrite', async () => {

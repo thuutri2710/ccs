@@ -76,15 +76,27 @@ describe('resolveActiveProfile', () => {
 
     expect(result).toBeNull();
     expect(stderrMessages.some((m) => m.includes('codex-auth'))).toBe(true);
+    expect(stderrMessages.join('')).toContain('$CCS_HOME/.ccs/codex-profiles.yaml');
+    expect(stderrMessages.join('')).not.toContain(registryPath);
+    expect(stderrMessages.join('')).not.toContain('invalid yaml');
   });
 
   it('throws when CCS_CODEX_PROFILE is set and registry YAML is corrupt', () => {
     fs.mkdirSync(path.dirname(registryPath), { recursive: true });
     fs.writeFileSync(registryPath, '{ invalid yaml: [[[', { mode: 0o600 });
 
-    expect(() => resolveActiveProfile({ CCS_CODEX_PROFILE: 'work' })).toThrow(
-      /Refusing to fall back to ~\/\.codex/
-    );
+    let thrown: unknown;
+    try {
+      resolveActiveProfile({ CCS_CODEX_PROFILE: 'work' });
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toBeDefined();
+    expect(String(thrown)).toContain('Refusing to fall back to ~/.codex');
+    expect(String(thrown)).toContain('$CCS_HOME/.ccs/codex-profiles.yaml');
+    expect(String(thrown)).not.toContain(registryPath);
+    expect(String(thrown)).not.toContain('invalid yaml');
   });
 
   it('returns source=env when CCS_CODEX_PROFILE matches a registry entry', () => {

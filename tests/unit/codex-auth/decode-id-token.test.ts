@@ -133,4 +133,10 @@ describe('decodeIdToken', () => {
     expect(hasStructurallyValidIdToken(`${header}.${payload}$.${signature}`)).toBe(false);
     expect(hasStructurallyValidIdToken(`${header}=.${payload}.${signature}`)).toBe(false);
   });
+
+  it('rejects JWT segments with impossible base64url length', () => {
+    const [header, payload] = buildToken({}).split('.');
+    expect(hasStructurallyValidIdToken(`${header}.${payload}.a`)).toBe(false);
+    expect(decodeIdToken(`${header}.${payload}.a`)).toEqual({});
+  });
 });
