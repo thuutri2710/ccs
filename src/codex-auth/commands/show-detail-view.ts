@@ -69,6 +69,8 @@ export function showProfileDetail(
   if (isActive) states.push('active');
   const stateStr = states.join(',');
   const accountId = meta.account_id ?? identity.account_id ?? null;
+  const email = meta.email ?? identity.email ?? null;
+  const plan = meta.plan_type ?? identity.plan_type ?? null;
 
   if (json) {
     const out: CodexProfileOutput = {
@@ -77,8 +79,8 @@ export function showProfileDetail(
       is_active: isActive,
       created: meta.created,
       last_used: meta.last_used ?? null,
-      email: identity.email ?? null,
-      plan: meta.plan_type ?? null,
+      email,
+      plan,
       account_id: accountId,
       profile_dir: profileDir,
       auth_json_exists: authExists,
@@ -98,8 +100,8 @@ export function showProfileDetail(
     ['Profile dir', profileDir],
     ['config.toml', configTarget ? `-> ${configTarget}  (symlink)` : '(not linked)'],
     ['auth.json', authState],
-    ['Email', identity.email ?? (authExists ? '<invalid>' : '<unknown>')],
-    ['Plan', meta.plan_type ?? (authExists ? '<invalid>' : '<unknown>')],
+    ['Email', email ?? (authExists ? '<invalid>' : '<unknown>')],
+    ['Plan', plan ?? (authExists ? '<invalid>' : '<unknown>')],
     ['Account ID', accountId ?? '-'],
     ['Created', new Date(meta.created).toLocaleString()],
     ['Last used', meta.last_used ? new Date(meta.last_used).toLocaleString() : 'never'],

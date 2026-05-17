@@ -146,6 +146,42 @@ describe('handleRemoveCodex — only profile', () => {
 // ── confirmation prompt ───────────────────────────────────────────────────────
 
 describe('handleRemoveCodex — confirmation', () => {
+  it('rejects extra positional arguments before deleting anything', async () => {
+    const { handleRemoveCodex } = await import(
+      '../../../../src/codex-auth/commands/remove-command'
+    );
+    const ctx = await makeCtx('work');
+
+    let exitCode = -1;
+    const err: string[] = [];
+    const origExit = process.exit;
+    const origError = console.error;
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.exit = (code?: number) => {
+      exitCode = code ?? 0;
+      throw new Error('exit');
+    };
+    console.error = (...a: unknown[]) => err.push(a.join(' '));
+    process.stderr.write = (chunk: string | Uint8Array) => {
+      err.push(String(chunk));
+      return true;
+    };
+
+    try {
+      await handleRemoveCodex(ctx, ['work', 'accidental', '--yes']);
+    } catch {
+      /* process.exit */
+    } finally {
+      process.exit = origExit;
+      console.error = origError;
+      process.stderr.write = origWrite;
+    }
+
+    expect(exitCode).toBeGreaterThan(0);
+    expect(ctx.registry.hasProfile('work')).toBe(true);
+    expect(err.join('')).toContain('Unexpected arguments: "accidental"');
+  });
+
   it('cancels when user declines confirmation', async () => {
     await mockConfirmNo();
     const { handleRemoveCodex } = await import(

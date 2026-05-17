@@ -168,17 +168,58 @@ describe('handleShowCodex — detail view', () => {
     expect(out).toContain('<unknown>');
   });
 
-  it('detail JSON includes account_id from registry metadata when auth.json is missing', async () => {
+  it('detail JSON includes cached registry identity when auth.json is missing', async () => {
     const { handleShowCodex } = await import('../../../../src/codex-auth/commands/show-command');
     const ctx = await makeCtx('registrydetail');
     ctx.registry.updateProfile('registrydetail', {
       account_id: 'acct-from-registry-detail',
+      email: 'detail@example.com',
+      plan_type: 'team',
     });
 
     const out = await captureStdout(() => handleShowCodex(ctx, ['registrydetail', '--json']));
-    const parsed = JSON.parse(out) as { account_id: string | null };
+    const parsed = JSON.parse(out) as {
+      account_id: string | null;
+      email: string | null;
+      plan: string | null;
+    };
 
     expect(parsed.account_id).toBe('acct-from-registry-detail');
+    expect(parsed.email).toBe('detail@example.com');
+    expect(parsed.plan).toBe('team');
+  });
+
+  it('rejects extra positional arguments instead of ignoring them', async () => {
+    const { handleShowCodex } = await import('../../../../src/codex-auth/commands/show-command');
+    const ctx = await makeCtx('myprofile');
+
+    let exitCode = -1;
+    const err: string[] = [];
+    const origExit = process.exit;
+    const origError = console.error;
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.exit = (code?: number) => {
+      exitCode = code ?? 0;
+      throw new Error('exit');
+    };
+    console.error = (...a: unknown[]) => err.push(a.join(' '));
+    process.stderr.write = (chunk: string | Uint8Array) => {
+      err.push(String(chunk));
+      return true;
+    };
+
+    try {
+      await handleShowCodex(ctx, ['myprofile', 'extra']);
+    } catch {
+      /* process.exit */
+    } finally {
+      process.exit = origExit;
+      console.error = origError;
+      process.stderr.write = origWrite;
+    }
+
+    expect(exitCode).toBeGreaterThan(0);
+    expect(err.join('')).toContain('Unexpected arguments: "extra"');
   });
 
   it('does not crash with malformed auth.json', async () => {

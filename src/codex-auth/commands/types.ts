@@ -28,6 +28,7 @@ export interface CodexAuthArgs {
   shell?: string;
   unknownFlags?: string[];
   seenOptions?: string[];
+  extraPositionals?: string[];
 }
 
 // ── Profile output shape (JSON mode) ─────────────────────────────────────────
@@ -86,6 +87,9 @@ export function parseArgs(args: string[]): CodexAuthArgs {
   if (positional.length > 0) {
     result.profileName = positional[0];
   }
+  if (positional.length > 1) {
+    result.extraPositionals = positional.slice(1);
+  }
 
   return result;
 }
@@ -108,10 +112,17 @@ export function rejectUnsupportedOptions(
   if (seen.has('--json') && !allowed.json) unsupported.add('--json');
   if (seen.has('--force') && !allowed.force) unsupported.add('--force');
   if (seen.has('--shell') && !allowed.shell) unsupported.add('--shell');
+  const extraPositionals = parsed.extraPositionals ?? [];
 
-  if (unsupported.size > 0) {
+  if (unsupported.size > 0 || extraPositionals.length > 0) {
     const flags = [...unsupported].join(', ');
     process.stderr.write(`Usage: ${color(usage, 'command')}\n`);
-    exitWithError(`Unknown options: ${flags}`, ExitCode.GENERAL_ERROR);
+    const details = [
+      flags ? `Unknown options: ${flags}` : null,
+      extraPositionals.length > 0
+        ? `Unexpected arguments: ${extraPositionals.map((arg) => `"${arg}"`).join(', ')}`
+        : null,
+    ].filter(Boolean);
+    exitWithError(details.join('; '), ExitCode.GENERAL_ERROR);
   }
 }
