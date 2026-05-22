@@ -31,8 +31,9 @@ describe('docker up subcommand', () => {
     dockerModule.DockerExecutor.prototype.getKeyRotationBanner = function () {
       return [
         '[!] Docker CLIProxy API key rotation grace period is active.',
-        '[i] New CLIProxy API key: new-secret',
+        '[i] New CLIProxy API key: new-...cret',
         '[i] Legacy key ccs-internal-managed remains valid until 2026-06-05T00:00:00.000Z.',
+        '[i] Reveal the full key with `ccs docker show-key --full`.',
       ].join('\n');
     };
 
@@ -51,7 +52,8 @@ describe('docker up subcommand', () => {
       expect(renderCapturedLines(capture.errorLines)).toContain(
         'Docker CLIProxy API key rotation grace period is active'
       );
-      expect(renderCapturedLines(capture.errorLines)).toContain('New CLIProxy API key: new-secret');
+      expect(renderCapturedLines(capture.errorLines)).toContain('New CLIProxy API key: new-...cret');
+      expect(renderCapturedLines(capture.errorLines)).toContain('ccs docker show-key --full');
       expect(process.exitCode).toBe(0);
     } finally {
       dockerModule.DockerExecutor.prototype.up = originalUp;

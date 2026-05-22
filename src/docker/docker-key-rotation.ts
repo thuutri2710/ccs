@@ -173,10 +173,14 @@ export function renderDockerKeyRotationBanner(status = getDockerKeyRotationStatu
     return '';
   }
 
+  const maskedReplacementKey =
+    maskDockerApiKey(status.legacyGrace.replacementKey) ?? '(not configured)';
+
   return [
     '[!] Docker CLIProxy API key rotation grace period is active.',
-    `[i] New CLIProxy API key: ${status.legacyGrace.replacementKey}`,
+    `[i] New CLIProxy API key: ${maskedReplacementKey}`,
     `[i] Legacy key ${status.legacyGrace.legacyKey} remains valid until ${status.legacyGrace.expiresAt}.`,
+    '[i] Reveal the full key with `ccs docker show-key --full`.',
     '[i] Update existing clients, then run `ccs docker finalize-key-rotation`.',
   ].join('\n');
 }

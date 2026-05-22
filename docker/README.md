@@ -131,7 +131,7 @@ docker exec ccs-cliproxy supervisorctl -c /etc/supervisord.conf restart ccs-dash
 
 On first startup, the integrated container generates per-install CLIProxy API and management secrets when the config is missing custom values. If you have already configured `cliproxy.auth.api_key` or `cliproxy.auth.management_secret`, Docker preserves those custom values.
 
-If you upgraded from an older Docker deployment that used the historical `ccs-internal-managed` API key, CCS keeps that legacy key valid beside the new per-install key for 14 days by default. During the grace period, every `ccs docker up` prints the new key and expiry date to stderr. Override the window with `CCS_DOCKER_LEGACY_KEY_GRACE_DAYS`.
+If you upgraded from an older Docker deployment that used the historical `ccs-internal-managed` API key, CCS keeps that legacy key valid beside the new per-install key for 14 days by default. During the grace period, every `ccs docker up` prints the masked new key and expiry date to stderr. Reveal the full key only with `ccs docker show-key --full`. Override the window with `CCS_DOCKER_LEGACY_KEY_GRACE_DAYS`.
 
 ```bash
 ccs docker show-key            # masked
