@@ -1,3 +1,28 @@
+## [8.1.0](https://github.com/kaitranntt/ccs/compare/v8.0.0...v8.1.0) (2026-05-23)
+
+### Features
+
+* **release:** promote dev to main — security hardening batch ([#1351](https://github.com/kaitranntt/ccs/issues/1351)) ([aed942f](https://github.com/kaitranntt/ccs/commit/aed942f51bc4f2dd1db52302d8cea3185a2bb192)), closes [#1340](https://github.com/kaitranntt/ccs/issues/1340) [#1341](https://github.com/kaitranntt/ccs/issues/1341) [#1342](https://github.com/kaitranntt/ccs/issues/1342) [#1344](https://github.com/kaitranntt/ccs/issues/1344) [#1346](https://github.com/kaitranntt/ccs/issues/1346) [#1347](https://github.com/kaitranntt/ccs/issues/1347) [#1348](https://github.com/kaitranntt/ccs/issues/1348) [#1349](https://github.com/kaitranntt/ccs/issues/1349) [#1350](https://github.com/kaitranntt/ccs/issues/1350) [#1345](https://github.com/kaitranntt/ccs/issues/1345) [#1353](https://github.com/kaitranntt/ccs/issues/1353) [#1340](https://github.com/kaitranntt/ccs/issues/1340) [#1354](https://github.com/kaitranntt/ccs/issues/1354) [#1347](https://github.com/kaitranntt/ccs/issues/1347) [#1352](https://github.com/kaitranntt/ccs/issues/1352)
+
+### Bug Fixes
+
+* **analytics:** harden sqlite3 invocation for native Droid usage scan ([#1347](https://github.com/kaitranntt/ccs/issues/1347)) ([469c9ff](https://github.com/kaitranntt/ccs/commit/469c9ffde44ca7bba8c9e33365d92b9a819cdec7))
+* **analytics:** support sqlite3 path resolution on Windows and NixOS ([#1354](https://github.com/kaitranntt/ccs/issues/1354)) ([9a42098](https://github.com/kaitranntt/ccs/commit/9a420988bc1b63a9cab270e331ee6e762726cb1b)), closes [#1347](https://github.com/kaitranntt/ccs/issues/1347)
+* **ci:** prevent promote-release tag command injection ([#1350](https://github.com/kaitranntt/ccs/issues/1350)) ([3b94ec8](https://github.com/kaitranntt/ccs/commit/3b94ec853d090317211a33abb5cf4f56542ef664))
+* **cliproxy:** disable spoofable default bg keepalive probe ([#1340](https://github.com/kaitranntt/ccs/issues/1340)) ([f0ec820](https://github.com/kaitranntt/ccs/commit/f0ec82005446d51434816e5d64b74e3d0c0ea602))
+* **cliproxy:** sanitize local port before config regeneration ([#1342](https://github.com/kaitranntt/ccs/issues/1342)) ([af7aa0c](https://github.com/kaitranntt/ccs/commit/af7aa0c2dda834237a3aa79661cd62d096c32876))
+* **codex-auth:** stop spawning powershell in shell detection ([#1348](https://github.com/kaitranntt/ccs/issues/1348)) ([825efb8](https://github.com/kaitranntt/ccs/commit/825efb8b109e88c4f778259176cf2485406eb8ed))
+* **codex-quota:** guard feature label type in quota windows ([#1346](https://github.com/kaitranntt/ccs/issues/1346)) ([b71fe5d](https://github.com/kaitranntt/ccs/commit/b71fe5dd6ec975ac13ea1f33bd00d51df8ac80dc))
+* **dispatcher:** also treat -p as non-subcommand short for --print ([#1352](https://github.com/kaitranntt/ccs/issues/1352)) ([8335f0c](https://github.com/kaitranntt/ccs/commit/8335f0c73cb2ade7f2bdd5d92ab6b0df1bc14e7a))
+* **dispatcher:** treat --print as non-subcommand Claude session ([#1341](https://github.com/kaitranntt/ccs/issues/1341)) ([fd561b5](https://github.com/kaitranntt/ccs/commit/fd561b59bc4b1bd46419848a1babc388d31d5321))
+* **models-dev:** sanitize models.dev registry entries and harden pricing resolver ([#1345](https://github.com/kaitranntt/ccs/issues/1345)) ([9cd9b79](https://github.com/kaitranntt/ccs/commit/9cd9b796caa953e146077d8402971db7a63a2c8f))
+* **pricing:** guard malformed models.dev model entries ([#1344](https://github.com/kaitranntt/ccs/issues/1344)) ([66966f3](https://github.com/kaitranntt/ccs/commit/66966f35276556551db52f38af46b5a5f8634c03))
+* **ui-docs:** remove third-party runtime assets from health report ([#1349](https://github.com/kaitranntt/ccs/issues/1349)) ([58df999](https://github.com/kaitranntt/ccs/commit/58df9999db44727695cbc0631f646623eb7e7fb5))
+
+### Code Refactoring
+
+* **cliproxy:** remove orphaned bg keepalive wiring ([#1353](https://github.com/kaitranntt/ccs/issues/1353)) ([5d27f10](https://github.com/kaitranntt/ccs/commit/5d27f10367f2e869079c6850e8b24aa2b98242f1)), closes [#1340](https://github.com/kaitranntt/ccs/issues/1340)
+
 ## [8.0.0](https://github.com/kaitranntt/ccs/compare/v7.79.1...v8.0.0) (2026-05-23)
 
 ### ⚠ BREAKING CHANGES
