@@ -93,6 +93,7 @@ export function ProviderEditor({
       qwen: ['alibaba', 'qwen'],
       iflow: ['iflow'],
       kilo: ['kilo'],
+      qoder: ['qoder'],
       kiro: ['kiro', 'aws'],
       ghcp: ['github', 'copilot'],
       kimi: ['kimi', 'moonshot'],

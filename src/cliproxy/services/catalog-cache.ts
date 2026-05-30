@@ -38,6 +38,7 @@ const CHANNEL_TO_PROVIDER: Record<string, CLIProxyProvider> = {
   kimi: 'kimi',
   kiro: 'kiro',
   'github-copilot': 'ghcp',
+  qoder: 'qoder',
 };
 
 /** CCS provider → channel name mapping (reverse) */
