@@ -792,11 +792,19 @@ export function buildUiCatalog(
     availableModels.some(
       (model) => normalizeModelId(model.id) === normalizeModelId(fallbackDefaultModel)
     );
+  const hasLiveDefaultModel = availableModels.some(
+    (model) => normalizeModelId(model.id) === normalizeModelId(liveCatalog.defaultModel)
+  );
+  const defaultModel = hasFallbackDefaultModel
+    ? fallbackDefaultModel
+    : hasLiveDefaultModel
+      ? liveCatalog.defaultModel
+      : (models[0]?.id ?? '');
 
   return {
     provider: liveCatalog.provider,
     displayName: liveCatalog.displayName || staticCatalog?.displayName || provider,
-    defaultModel: hasFallbackDefaultModel ? fallbackDefaultModel : liveCatalog.defaultModel,
+    defaultModel,
     models,
   };
 }

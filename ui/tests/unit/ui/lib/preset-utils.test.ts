@@ -116,6 +116,55 @@ describe('claude preset utils', () => {
     );
   });
 
+  it('builds UI catalogs with a visible default when the live default is stale', () => {
+    const liveCatalogs = {
+      gemini: {
+        provider: 'gemini',
+        displayName: 'Gemini',
+        defaultModel: 'gemini-2.5-pro',
+        models: [{ id: 'gemini-live-only', name: 'Gemini Live Only' }],
+      },
+    };
+
+    const catalogs = buildUiCatalogs(liveCatalogs);
+
+    expect(catalogs.gemini?.defaultModel).toBe('gemini-live-only');
+    expect(catalogs.gemini?.models.map((model) => model.id)).toContain(
+      catalogs.gemini?.defaultModel
+    );
+  });
+
+  it('uses the selected visible model for quick setup fallback mappings', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ apiKey: { value: 'managed-key' } }),
+      })
+      .mockResolvedValueOnce({ ok: true });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await applyDefaultPreset('gemini', undefined, {
+      provider: 'gemini',
+      displayName: 'Gemini',
+      defaultModel: 'gemini-2.5-pro',
+      models: [{ id: 'gemini-live-only', name: 'Gemini Live Only' }],
+    });
+
+    expect(result).toEqual({ success: true, presetName: 'Gemini Live Only' });
+
+    const [, requestInit] = fetchMock.mock.calls[1] ?? [];
+    const body = JSON.parse(String(requestInit?.body));
+
+    expect(body.settings.env).toMatchObject({
+      ANTHROPIC_MODEL: 'gemini-live-only',
+      ANTHROPIC_DEFAULT_OPUS_MODEL: 'gemini-live-only',
+      ANTHROPIC_DEFAULT_SONNET_MODEL: 'gemini-live-only',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'gemini-live-only',
+    });
+  });
+
   it('keeps Gemini presets on 3.1 Pro while resolving 3/3.1 alias variants', () => {
     const geminiCatalog = MODEL_CATALOGS.gemini;
     const latestPro = geminiCatalog.models.find((model) => model.id === 'gemini-3.1-pro-preview');
