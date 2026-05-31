@@ -296,6 +296,12 @@ const PRICING_REGISTRY: Record<string, ModelPricing> = {
       fast: OPUS_46_47_FAST_RATES,
     },
   },
+  'claude-opus-4-7-thinking': {
+    inputPerMillion: 5.0,
+    outputPerMillion: 25.0,
+    cacheCreationPerMillion: 6.25,
+    cacheReadPerMillion: 0.5,
+  },
   // Claude 4.8 Opus ($5/$25) — fast mode ($10/$50, 2x premium per Anthropic docs)
   'claude-opus-4-8': {
     inputPerMillion: 5.0,
@@ -304,15 +310,6 @@ const PRICING_REGISTRY: Record<string, ModelPricing> = {
     cacheReadPerMillion: 0.5,
     serviceTiers: {
       fast: OPUS_48_FAST_RATES,
-    },
-  },
-  'claude-opus-4-7-thinking': {
-    inputPerMillion: 5.0,
-    outputPerMillion: 25.0,
-    cacheCreationPerMillion: 6.25,
-    cacheReadPerMillion: 0.5,
-    serviceTiers: {
-      fast: OPUS_46_47_FAST_RATES,
     },
   },
 

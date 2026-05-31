@@ -200,6 +200,17 @@ describe('model-pricing', () => {
       const opus47fast = getModelPricing('claude-opus-4-7', { serviceTier: 'fast' });
       expect(opus47fast.inputPerMillion).toBe(30.0);
       expect(opus47fast.outputPerMillion).toBe(150.0);
+      expect(opus47fast.cacheCreationPerMillion).toBe(37.5); // 30 * 1.25
+      expect(opus47fast.cacheReadPerMillion).toBe(3.0); // 30 * 0.1
+    });
+
+    it('should return fast-tier pricing for Claude Opus 4.6 when serviceTier=fast', () => {
+      // Fast mode on 4.6 carries the same 6x premium as 4.7 ($30/$150).
+      const opus46fast = getModelPricing('claude-opus-4-6', { serviceTier: 'fast' });
+      expect(opus46fast.inputPerMillion).toBe(30.0);
+      expect(opus46fast.outputPerMillion).toBe(150.0);
+      expect(opus46fast.cacheCreationPerMillion).toBe(37.5); // 30 * 1.25
+      expect(opus46fast.cacheReadPerMillion).toBe(3.0); // 30 * 0.1
     });
 
     it('should apply fast-tier pricing together with date-suffix stripping', () => {
