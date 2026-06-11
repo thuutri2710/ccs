@@ -1,7 +1,7 @@
 {
-  "name": "@kaitranntt/ccs",
+  "name": "custom-ccs",
   "version": "8.2.0",
-  "description": "Claude Code Switch - Instant profile switching between Claude, GLM, Kimi, and more",
+  "description": "It's clone from ccs",
   "keywords": [
     "cli",
     "claude",
