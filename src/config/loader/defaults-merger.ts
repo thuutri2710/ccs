@@ -26,6 +26,7 @@ import {
   DEFAULT_DASHBOARD_AUTH_CONFIG,
   DEFAULT_IMAGE_ANALYSIS_CONFIG,
   DEFAULT_LOGGING_CONFIG,
+  normalizeFolderRules,
 } from '../unified-config-types';
 import type { UnifiedConfig } from '../unified-config-types';
 import { canonicalizeBrowserConfig, normalizeSessionAffinityTtl } from './normalizers';
@@ -331,5 +332,7 @@ export function mergeWithDefaults(partial: Partial<UnifiedConfig>): UnifiedConfi
       profile_backends:
         partial.image_analysis?.profile_backends ?? DEFAULT_IMAGE_ANALYSIS_CONFIG.profile_backends,
     }),
+    // Folder-to-profile routing rules (omitted from output when empty/invalid)
+    rules: normalizeFolderRules(partial.rules),
   };
 }

@@ -61,6 +61,19 @@ export function generateYamlWithComments(config: UnifiedConfig): string {
   );
   lines.push('');
 
+  // Folder routing rules section
+  if (config.rules && config.rules.length > 0) {
+    lines.push('# ----------------------------------------------------------------------------');
+    lines.push('# Rules: Folder-to-profile routing for the claude() shell wrapper');
+    lines.push('# Manage with: ccs rule add <profile> [path], ccs rule list, ccs rule remove [path]');
+    lines.push('# Most specific (longest) matching path wins; no match runs plain claude.');
+    lines.push('# ----------------------------------------------------------------------------');
+    lines.push(
+      yaml.dump({ rules: config.rules }, { indent: 2, lineWidth: -1, quotingType: '"' }).trim()
+    );
+    lines.push('');
+  }
+
   // CLIProxy section
   lines.push('# ----------------------------------------------------------------------------');
   lines.push('# CLIProxy: OAuth-based providers (gemini, codex, agy, qwen, iflow)');

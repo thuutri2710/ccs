@@ -38,6 +38,7 @@ import type { OfficialChannelsConfig } from './channels';
 import { DEFAULT_OFFICIAL_CHANNELS_CONFIG } from './channels';
 import type { BrowserConfig } from './browser';
 import { DEFAULT_BROWSER_CONFIG } from './browser';
+import type { FolderRule } from './rules';
 
 /**
  * Main unified configuration structure.
@@ -86,6 +87,8 @@ export interface UnifiedConfig {
   browser?: BrowserConfig;
   /** Image analysis configuration (vision via CLIProxy) */
   image_analysis?: ImageAnalysisConfig;
+  /** Folder-to-profile routing rules (used by the claude() shell wrapper) */
+  rules?: FolderRule[];
 }
 
 /**

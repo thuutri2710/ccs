@@ -107,6 +107,10 @@ export type {
   ImageAnalysisConfig,
 } from './providers';
 
+// Folder-to-profile routing rules
+export { normalizeFolderRules, matchFolderRule } from './rules';
+export type { FolderRule } from './rules';
+
 // Main unified config interface, factory, and type guard
 export { createEmptyUnifiedConfig, isUnifiedConfig } from './unified-config';
 export type { UnifiedConfig } from './unified-config';

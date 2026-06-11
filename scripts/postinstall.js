@@ -24,6 +24,102 @@ function getCcsHome() {
   return process.env.CCS_HOME || os.homedir();
 }
 
+// Markers delimit the ccs-managed claude() function inside the user's shell rc.
+// Idempotency and later updates/removal key off these exact lines.
+const CLAUDE_FN_MARKER_START = '# >>> ccs custom claude (managed) >>>';
+const CLAUDE_FN_MARKER_END = '# <<< ccs custom claude (managed) <<<';
+
+// Folder-aware claude() wrapper: picks a ccs profile from ~/.ccs/config.yaml
+// based on the current directory, then launches Claude through that profile.
+// Single-quoted JS strings keep shell $vars/${...} literal; \\ emits a literal backslash.
+const CLAUDE_FN_LINES = [
+  CLAUDE_FN_MARKER_START,
+  'claude() {',
+  '  local cwd profile config',
+  '  cwd=$(pwd)',
+  '  config="$HOME/.ccs/config.yaml"',
+  '  # No config (or yq missing) -> behave like plain claude',
+  '  if [ ! -f "$config" ] || ! command -v yq >/dev/null 2>&1; then',
+  '    command claude "$@"',
+  '    return',
+  '  fi',
+  '  profile=$(yq -r \'.default\' "$config")',
+  "  while IFS=$'\\t' read -r match rule_profile; do",
+  '    local expanded_match="${match/#\\~/$HOME}"',
+  '    if [[ "$cwd" == "$expanded_match"* ]]; then',
+  '      profile="$rule_profile"',
+  '      break',
+  '    fi',
+  '  done < <(yq -r \'.rules[] | [.match, .profile] | @tsv\' "$config")',
+  '  if [ -z "$profile" ] || [ "$profile" = "null" ]; then',
+  '    command claude "$@"',
+  '  else',
+  '    command ccs "$profile" "$@"',
+  '  fi',
+  '}',
+  CLAUDE_FN_MARKER_END,
+];
+
+/**
+ * Install the ccs-managed claude() function into the user's shell rc files.
+ *
+ * Idempotent and non-destructive:
+ *   - Skips a file that already contains the managed block.
+ *   - Skips (does not clobber) a file that defines its own claude() function.
+ *   - Targets ~/.zshrc (created if absent) and ~/.bashrc (only if it exists).
+ *
+ * Opt out by setting CCS_NO_SHELL_INIT=1. Never throws - shell setup is
+ * convenience, not a hard install dependency.
+ *
+ * @param {string} homedir - Home directory (respects CCS_HOME for test isolation)
+ */
+function installClaudeShellFunction(homedir) {
+  if (process.env.CCS_NO_SHELL_INIT === '1' || process.env.CCS_NO_SHELL_INIT === 'true') {
+    console.log('[i] Skipped claude() shell setup (CCS_NO_SHELL_INIT set)');
+    return;
+  }
+
+  // Detects a user-defined `claude()` or `function claude` not managed by ccs.
+  const ownFunctionPattern = /(^|\n)\s*(function\s+claude\b|claude\s*\(\s*\))/;
+  const block = `\n${CLAUDE_FN_LINES.join('\n')}\n`;
+
+  // Always ensure .zshrc (zsh is the default shell on macOS); only touch
+  // .bashrc when it already exists so we never create stray rc files.
+  const targets = [{ file: '.zshrc', create: true }];
+  const bashrc = path.join(homedir, '.bashrc');
+  if (fs.existsSync(bashrc)) {
+    targets.push({ file: '.bashrc', create: false });
+  }
+
+  for (const target of targets) {
+    const rcPath = path.join(homedir, target.file);
+    try {
+      const exists = fs.existsSync(rcPath);
+      const content = exists ? fs.readFileSync(rcPath, 'utf8') : '';
+
+      if (content.includes(CLAUDE_FN_MARKER_START)) {
+        console.log(`[OK] claude() already installed: ~/${target.file} (preserved)`);
+        continue;
+      }
+
+      if (ownFunctionPattern.test(content)) {
+        console.log(`[!] Found your own claude() in ~/${target.file} - left untouched`);
+        continue;
+      }
+
+      if (!exists && !target.create) {
+        continue;
+      }
+
+      fs.appendFileSync(rcPath, block, 'utf8');
+      console.log(`[OK] Added claude() function: ~/${target.file}`);
+      console.log(`      Reload with: source ~/${target.file}`);
+    } catch (err) {
+      console.warn(`[!] Could not update ~/${target.file}: ${err.message}`);
+    }
+  }
+}
+
 /**
  * Check if path is a broken symlink and remove it if so
  * Fixes: ENOENT error when mkdir tries to create over a dangling symlink
@@ -176,7 +272,10 @@ function createConfigFiles() {
         // Try to use unified config loader if dist is available
         try {
           const { saveUnifiedConfig } = require('../dist/config/unified-config-loader');
-          const { createEmptyUnifiedConfig, UNIFIED_CONFIG_VERSION } = require('../dist/config/unified-config-types');
+          const {
+            createEmptyUnifiedConfig,
+            UNIFIED_CONFIG_VERSION,
+          } = require('../dist/config/unified-config-types');
 
           const config = createEmptyUnifiedConfig();
           config.version = UNIFIED_CONFIG_VERSION;
@@ -207,14 +306,14 @@ function createConfigFiles() {
               accounts: {},
               cliproxy: {
                 variants: {},
-                oauth_accounts: {}
+                oauth_accounts: {},
               },
               cliproxy_server: {
                 local: {
                   port: 8317,
-                  auto_start: true
-                }
-              }
+                  auto_start: true,
+                },
+              },
             };
 
             try {
@@ -222,7 +321,7 @@ function createConfigFiles() {
                 indent: 2,
                 lineWidth: -1,
                 noRefs: true,
-                sortKeys: false
+                sortKeys: false,
               });
               const tmpPath = `${configYamlPath}.tmp`;
               fs.writeFileSync(tmpPath, yamlContent, 'utf8');
@@ -266,7 +365,7 @@ function createConfigFiles() {
     }
 
     const completionFiles = ['ccs.bash', 'ccs.zsh', 'ccs.fish', 'ccs.ps1'];
-    completionFiles.forEach(file => {
+    completionFiles.forEach((file) => {
       const src = path.join(scriptsCompletionDir, file);
       const dest = path.join(completionsDir, file);
 
@@ -305,6 +404,10 @@ function createConfigFiles() {
       console.log('[OK] Claude settings exist: ~/.claude/settings.json (preserved)');
     }
 
+    // Install folder-aware claude() shell function (idempotent, opt-out via CCS_NO_SHELL_INIT)
+    console.log('');
+    installClaudeShellFunction(homedir);
+
     // Validate configuration
     console.log('');
     console.log('[i] Validating configuration...');
@@ -313,7 +416,7 @@ function createConfigFiles() {
     if (!validation.success) {
       console.error('');
       console.error('[X] Configuration validation failed:');
-      validation.errors.forEach(err => console.error(`    - ${err}`));
+      validation.errors.forEach((err) => console.error(`    - ${err}`));
       console.error('');
       throw new Error('Configuration incomplete');
     }
@@ -322,13 +425,12 @@ function createConfigFiles() {
     if (validation.warnings.length > 0) {
       console.warn('');
       console.warn('[!] Warnings:');
-      validation.warnings.forEach(warn => console.warn(`    - ${warn}`));
+      validation.warnings.forEach((warn) => console.warn(`    - ${warn}`));
     }
 
     console.log('');
     console.log('[OK] CCS configuration ready!');
     console.log('  Run: ccs --version');
-
   } catch (err) {
     // Show error details
     console.error('');
