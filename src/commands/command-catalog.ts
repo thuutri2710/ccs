@@ -103,6 +103,12 @@ export const ROOT_COMMAND_CATALOG: readonly RootCommandEntry[] = [
   },
   { name: 'tokens', summary: 'Manage CLIProxy auth tokens', group: 'manage', visibility: 'public' },
   {
+    name: 'rule',
+    summary: 'Manage folder-to-profile routing rules (add/remove/list)',
+    group: 'manage',
+    visibility: 'public',
+  },
+  {
     name: 'migrate',
     summary: 'Move legacy JSON config to unified YAML config',
     group: 'manage',

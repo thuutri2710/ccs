@@ -157,10 +157,8 @@ describe('npm postinstall', () => {
       const content = fs.readFileSync(zshrc, 'utf8');
       assert(content.includes(CLAUDE_FN_MARKER), 'managed marker should be present');
       assert(content.includes('claude() {'), 'function definition should be present');
-      assert(
-        content.includes('config.yaml'),
-        'function should reference config.yaml'
-      );
+      assert(content.includes('config.yaml'), 'function should reference config.yaml');
+      assert(content.includes('.rules'), 'function should read the rules section');
     });
 
     it('is idempotent (no duplicate block on second run)', () => {

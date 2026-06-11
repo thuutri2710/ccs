@@ -29,13 +29,14 @@ function getCcsHome() {
 const CLAUDE_FN_MARKER_START = '# >>> ccs custom claude (managed) >>>';
 const CLAUDE_FN_MARKER_END = '# <<< ccs custom claude (managed) <<<';
 
-// Folder-aware claude() wrapper: picks a ccs profile from ~/.ccs/config.yaml
-// based on the current directory, then launches Claude through that profile.
+// Folder-aware claude() wrapper: picks a ccs profile from the `rules:` section of
+// ~/.ccs/config.yaml based on the current directory (longest matching path wins),
+// then launches Claude through that profile. Manage rules with `ccs rule ...`.
 // Single-quoted JS strings keep shell $vars/${...} literal; \\ emits a literal backslash.
 const CLAUDE_FN_LINES = [
   CLAUDE_FN_MARKER_START,
   'claude() {',
-  '  local cwd profile config',
+  '  local cwd config profile best_len expanded len match rule_profile',
   '  cwd=$(pwd)',
   '  config="$HOME/.ccs/config.yaml"',
   '  # No config (or yq missing) -> behave like plain claude',
@@ -43,15 +44,19 @@ const CLAUDE_FN_LINES = [
   '    command claude "$@"',
   '    return',
   '  fi',
-  '  profile=$(yq -r \'.default\' "$config")',
+  '  profile=""',
+  '  best_len=-1',
   "  while IFS=$'\\t' read -r match rule_profile; do",
-  '    local expanded_match="${match/#\\~/$HOME}"',
-  '    if [[ "$cwd" == "$expanded_match"* ]]; then',
-  '      profile="$rule_profile"',
-  '      break',
+  '    expanded="${match/#\\~/$HOME}"',
+  '    if [[ "$cwd" == "$expanded" || "$cwd" == "$expanded"/* ]]; then',
+  '      len=${#expanded}',
+  '      if (( len > best_len )); then',
+  '        best_len=$len',
+  '        profile="$rule_profile"',
+  '      fi',
   '    fi',
-  '  done < <(yq -r \'.rules[] | [.match, .profile] | @tsv\' "$config")',
-  '  if [ -z "$profile" ] || [ "$profile" = "null" ]; then',
+  "  done < <(yq -r '.rules[]? | [.path, .profile] | @tsv' \"$config\")",
+  '  if [ -z "$profile" ]; then',
   '    command claude "$@"',
   '  else',
   '    command ccs "$profile" "$@"',

@@ -193,6 +193,13 @@ export const ROOT_COMMAND_ROUTES: readonly NamedCommandRoute[] = [
       await handleSetupCommand(args);
     },
   },
+  {
+    name: 'rule',
+    handle: async (args) => {
+      const { handleRuleCommand } = await import('./rule-command');
+      await handleRuleCommand(args);
+    },
+  },
 ];
 
 export async function tryHandleRootCommand(args: string[]): Promise<boolean> {
