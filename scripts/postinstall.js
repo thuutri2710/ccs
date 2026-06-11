@@ -31,7 +31,8 @@ const CLAUDE_FN_MARKER_END = '# <<< ccs custom claude (managed) <<<';
 
 // Folder-aware claude() wrapper: picks a ccs profile from the `rules:` section of
 // ~/.ccs/config.yaml based on the current directory (longest matching path wins),
-// then launches Claude through that profile. Manage rules with `ccs rule ...`.
+// falling back to the top-level `default:` profile, then launches Claude through it.
+// Prints the chosen profile to stderr. Manage rules with `ccs rule ...`.
 // Single-quoted JS strings keep shell $vars/${...} literal; \\ emits a literal backslash.
 const CLAUDE_FN_LINES = [
   CLAUDE_FN_MARKER_START,
@@ -56,9 +57,15 @@ const CLAUDE_FN_LINES = [
   '      fi',
   '    fi',
   "  done < <(yq -r '.rules[]? | [.path, .profile] | @tsv' \"$config\")",
+  '  # No rule matched -> fall back to the default profile from config.yaml',
   '  if [ -z "$profile" ]; then',
+  "    profile=$(yq -r '.default // \"\"' \"$config\" 2>/dev/null)",
+  '  fi',
+  '  if [ -z "$profile" ] || [ "$profile" = "null" ]; then',
+  '    echo "[ccs] No matching rule or default profile; using plain claude" >&2',
   '    command claude "$@"',
   '  else',
+  '    echo "[ccs] Using profile: $profile" >&2',
   '    command ccs "$profile" "$@"',
   '  fi',
   '}',

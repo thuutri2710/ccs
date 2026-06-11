@@ -158,7 +158,8 @@ async function showHelp(): Promise<void> {
   console.log('');
   console.log('Notes:');
   console.log('  - [path] defaults to the current directory when omitted.');
-  console.log('  - Most specific (longest) matching path wins; no match runs plain claude.');
+  console.log('  - Most specific (longest) matching path wins.');
+  console.log('  - No match falls back to the default profile, then to plain claude.');
   console.log('  - The claude() shell wrapper uses these rules to auto-select a profile.');
   console.log('');
   console.log('Examples:');

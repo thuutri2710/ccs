@@ -1,7 +1,7 @@
 {
-  "name": "custom-ccs",
-  "version": "8.3.0",
-  "description": "It's clone from ccs",
+  "name": "@thuutri2710/ccs",
+  "version": "8.6.0",
+  "description": "It's clone from @kaitranntt/ccs",
   "keywords": [
     "cli",
     "claude",
@@ -22,6 +22,9 @@
   "author": {
     "name": "Tam Nhu Tran (Kai)",
     "email": "kaitranntt@users.noreply.github.com"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "main": "dist/ccs.js",
   "types": "dist/ccs.d.ts",
